@@ -17,3 +17,5 @@ sqlx = "0.7.1"
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 anyhow = "1.0.75"
 bytes = "1.5.0"
+nb-from-env = "0.2.1"
+env_logger = "0.10.0"

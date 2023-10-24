@@ -1,42 +1,49 @@
-use actix_multipart::{Field, Multipart};
-use actix_web::{error::Result, http::header::DispositionType, web::Data, HttpRequest};
-use anyhow::{Context, Error};
-use bytes::Bytes;
-use futures::{Stream, StreamExt};
+use actix_multipart::Multipart;
+use actix_web::{
+    error::{ErrorBadRequest, ErrorInternalServerError, Result},
+    web::{Data, Json},
+    HttpRequest,
+};
+use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
 use upload_service::core::{repository::Repository, service::Service, store::Store};
 
 #[derive(Debug, Serialize)]
-struct UploadResult {
+pub struct UploadResult {
     ids: Vec<String>,
 }
 
-async fn upload<R, S, TK>(
+pub(crate) async fn upload<R, S>(
     req: HttpRequest,
     service: Data<Service<R, S, String>>,
     mut form: Multipart,
-) -> Result<UploadResult>
+) -> Result<Json<UploadResult>>
 where
     R: Repository<String> + Clone,
-    S: Store<Stream = Field> + Clone,
+    S: Store + Clone,
 {
-    if let Some(hv) = req.headers().get("X-User-ID") {
-        if let Ok(uid) = hv.to_str() {
-            let mut ids = Vec::new();
-            while let Some(field) = form.next().await {
-                if let Ok(field) = field {
-                    if let Some(filename) = field.content_disposition().clone().get_filename() {
-                        if let Ok(id) = service
-                            .upload(field, filename, uid.to_owned(), Some(1024 * 1024))
-                            .await
-                        {
-                            ids.push(id);
-                        }
-                    }
-                }
-            }
-            return Ok(UploadResult { ids });
-        }
+    let hv = req
+        .headers()
+        .get("X-User-ID")
+        .ok_or(ErrorBadRequest("Unauthorized"))?;
+    let uid = hv.to_str().map_err(ErrorBadRequest)?;
+    let mut ids = Vec::new();
+    while let Some(field) = form.next().await {
+        let field = field.map_err(ErrorInternalServerError)?;
+        let disposition = field.content_disposition().clone();
+        let filename = disposition
+            .get_filename()
+            .ok_or(ErrorBadRequest("failed to get filename"))?;
+        let id = service
+            .upload(
+                field.map_err(|e| anyhow::Error::msg(e.to_string())),
+                filename,
+                uid.to_owned(),
+                Some(1024 * 1024),
+            )
+            .await
+            .map_err(ErrorInternalServerError)?;
+        ids.push(id);
     }
-    Err(actix_web::error::ErrorUnauthorized("Unauthorized"))
+    Ok(Json(UploadResult { ids }))
 }
