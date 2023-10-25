@@ -1,4 +1,4 @@
-url=http://localhost:8000/
+url=http://localhost:8001/files
 request=POST
 form=file=@test.jpg
 header=@upload.headers

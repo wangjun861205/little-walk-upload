@@ -1,8 +1,9 @@
 use actix_multipart::Multipart;
 use actix_web::{
     error::{ErrorBadRequest, ErrorInternalServerError, Result},
-    web::{Data, Json},
-    HttpRequest,
+    http::StatusCode,
+    web::{Data, Json, Path},
+    HttpRequest, HttpResponse,
 };
 use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
@@ -15,11 +16,11 @@ pub struct UploadResult {
 
 pub(crate) async fn upload<R, S>(
     req: HttpRequest,
-    service: Data<Service<R, S, String>>,
+    service: Data<Service<R, S>>,
     mut form: Multipart,
 ) -> Result<Json<UploadResult>>
 where
-    R: Repository<String> + Clone,
+    R: Repository + Clone,
     S: Store + Clone,
 {
     let hv = req
@@ -38,7 +39,7 @@ where
             .upload(
                 field.map_err(|e| anyhow::Error::msg(e.to_string())),
                 filename,
-                uid.to_owned(),
+                uid,
                 Some(1024 * 1024),
             )
             .await
@@ -46,4 +47,25 @@ where
         ids.push(id);
     }
     Ok(Json(UploadResult { ids }))
+}
+
+pub(crate) async fn get<R, S>(
+    service: Data<Service<R, S>>,
+    id: Path<(String,)>,
+) -> Result<HttpResponse>
+where
+    R: Repository + Clone,
+    S: Store + Clone,
+{
+    let file_info = service
+        .get_uploaded_file(&id.0)
+        .await
+        .map_err(ErrorInternalServerError)?;
+    let stream = service
+        .download(&id.0)
+        .await
+        .map_err(ErrorInternalServerError)?;
+    Ok(HttpResponse::build(StatusCode::OK)
+        .insert_header(("Content-Type", file_info.mime_type))
+        .streaming(stream))
 }
