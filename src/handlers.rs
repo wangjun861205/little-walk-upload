@@ -1,6 +1,6 @@
 use actix_multipart::Multipart;
 use actix_web::{
-    error::{ErrorBadRequest, ErrorInternalServerError, Result},
+    error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, Result},
     http::StatusCode,
     web::{Data, Json, Path},
     HttpRequest, HttpResponse,
@@ -60,7 +60,8 @@ where
     let file_info = service
         .get_uploaded_file(&id.0)
         .await
-        .map_err(ErrorInternalServerError)?;
+        .map_err(ErrorInternalServerError)?
+        .ok_or(ErrorNotFound("file not found"))?;
     let stream = service
         .download(&id.0)
         .await
