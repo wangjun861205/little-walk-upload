@@ -9,8 +9,7 @@ edition = "2021"
 actix-form-data = "0.6.2"
 actix-multipart = "0.6.1"
 actix-web = "4.4.0"
-# upload-service = { git = "https://github.com/wangjun861205/upload-service.git" }
-upload-service = { path = "../upload-service" }
+upload-service = { git = "https://github.com/wangjun861205/upload-service.git" }
 dotenv = "0.15.0"
 futures = "0.3.28"
 serde = "1.0.189"

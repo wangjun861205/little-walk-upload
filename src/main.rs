@@ -13,6 +13,7 @@ use upload_service::{
 
 #[derive(Debug, FromEnvDerive)]
 struct Config {
+    server_address: String,
     mongo_uri: String,
     mongo_database: String,
     store_path: String,
@@ -44,7 +45,7 @@ async fn main() -> std::io::Result<()> {
                 .route("", post().to(handlers::upload::<Mongo, LocalFSStore>)),
         )
     })
-    .bind("0.0.0.0:8001")?
+    .bind(&config.server_address)?
     .run()
     .await
 }
