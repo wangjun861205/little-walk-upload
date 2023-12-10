@@ -40,9 +40,11 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let logger = Logger::new(&config.log_format);
         App::new().wrap(logger).app_data(service.clone()).service(
-            scope("files")
-                .route("/{id}", get().to(handlers::get::<Mongo, LocalFSStore>))
-                .route("", post().to(handlers::upload::<Mongo, LocalFSStore>)),
+            scope("/apis").service(
+                scope("/uploads")
+                    .route("/{id}", get().to(handlers::get::<Mongo, LocalFSStore>))
+                    .route("", post().to(handlers::upload::<Mongo, LocalFSStore>)),
+            ),
         )
     })
     .bind(&config.server_address)?
